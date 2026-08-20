@@ -1,10 +1,10 @@
-
 import pandas as pd
 import numpy as np
 
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
+
 
 df = pd.read_csv('data/survey.csv')
 print("Before cleaning:", df.shape) #load and print raw data 
@@ -36,3 +36,49 @@ r2 = r2_score(y_test, predictions) #compare its guesses to the real salaries it 
 print("Slope (coefficient):", model.coef_[0])
 print("Intercept:", model.intercept_)
 print("R^2:", r2)
+
+#adding more variables 
+#Turning semicolon separated language/database lists into a simple count
+def count_items(text):
+    if text == '':
+        return 0
+    else:
+        items = text.split(';')
+        return len(items)
+
+df['num_languages'] = df['LanguageHaveWorkedWith'].fillna('').apply(count_items)
+df['num_databases'] = df['DatabaseHaveWorkedWith'].fillna('').apply(count_items)
+
+features = ['WorkExp', 'num_languages', 'num_databases', 'Country']# total variables (x)
+
+df_model2 = df.dropna(subset=features + ['annual_salary_usd'])
+print("Rows available for this model:", df_model2.shape)
+
+X2 = df_model2[features]
+y2 = df_model2['annual_salary_usd']
+X2_encoded = pd.get_dummies(X2, columns=['Country'])
+
+X2_train, X2_test, y2_train, y2_test = train_test_split(X2_encoded, y2, test_size=0.2, random_state=42)
+
+model2 = LinearRegression()
+model2.fit(X2_train, y2_train) #repeat same regression but with added variables
+
+predictions2 = model2.predict(X2_test)
+r2_2 = r2_score(y2_test, predictions2)
+
+print("Intercept:", model2.intercept_)
+print("R^2:", r2_2)
+
+#testing on a new person
+new_person = pd.DataFrame([{
+    'WorkExp': 7,
+    'num_languages': 4,
+    'num_databases': 3,
+    'Country': 'United Kingdom of Great Britain and Northern Ireland'
+}])
+
+new_person_encoded = pd.get_dummies(new_person, columns=['Country'])
+new_person_encoded = new_person_encoded.reindex(columns=X2_train.columns, fill_value=0)
+predicted_salary = model2.predict(new_person_encoded)[0]
+#forces the new person's row to have exactly the same columns as training data
+print("Predicted salary for new person:", round(predicted_salary, 2))
